@@ -42,10 +42,17 @@ class FlutterRoutePickerView: NSObject, FlutterPlatformView {
             tempView.delegate = _delegate
             
             _flutterRoutePickerView = tempView
+            
+            super.init()
+
+            NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
+
         } else {
             let tempView = MPVolumeView(frame: .init(x: 0.0, y: 0.0, width: 44.0, height: 44.0))
             tempView.showsVolumeSlider = false
             _flutterRoutePickerView = tempView
+            
+            super.init()
         }
     }
     
@@ -58,6 +65,36 @@ class FlutterRoutePickerView: NSObject, FlutterPlatformView {
                              green: map["green"] as! CGFloat,
                              blue: map["blue"] as! CGFloat,
                              alpha: map["alpha"] as! CGFloat)
+    }
+    
+    @objc func handleRouteChange(notification: Notification) {
+        isAirplaying()
+        guard let userInfo = notification.userInfo else {
+            return
+        }
+            
+        if let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt, let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) {
+            
+            
+            switch reason {
+            case .newDeviceAvailable:
+                print("newDeviceAvailable")
+                break
+            case .oldDeviceUnavailable:
+                print("oldDeviceUnavailable")
+                break
+            case .routeConfigurationChange:
+                print("routeConfigurationChange")
+                break
+            case .unknown:
+                if let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription {
+                    print("previous route outputs: \(previousRoute.outputs)")
+                }
+                break
+            default:
+                break
+            }
+        }
     }
 }
 
