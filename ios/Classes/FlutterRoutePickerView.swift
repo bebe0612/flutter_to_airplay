@@ -120,8 +120,8 @@ func isAirplaying() -> Bool {
     let route = AVAudioSession.sharedInstance().currentRoute
 
     for output in route.outputs where output.portType == AVAudioSession.Port.airPlay {
-        return false
+        return true
     }
     
-    return true
+    return false
 }
