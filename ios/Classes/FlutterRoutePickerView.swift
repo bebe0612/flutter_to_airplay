@@ -76,3 +76,15 @@ class FlutterRoutePickerDelegate : NSObject, AVRoutePickerViewDelegate {
         _methodChannel.invokeMethod("onClosePickerView", arguments: nil)
     }
 }
+
+func isAirplaying() -> Bool {
+    let nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo
+    
+    let route = AVAudioSession.sharedInstance().currentRoute
+
+    for output in route.outputs where output.portType == AVAudioSession.Port.airPlay {
+        return false
+    }
+    
+    return true
+}
