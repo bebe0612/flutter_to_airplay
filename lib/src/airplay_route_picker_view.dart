@@ -18,6 +18,7 @@ class AirPlayRoutePickerView extends StatefulWidget {
     this.width = 44.0,
     this.onShowPickerView,
     this.onClosePickerView,
+    this.onAirplayStatusChanged,
   }) : super(key: key);
 
   /// Whether or not the route picker should sort video capable output devices to the top of the list.
@@ -53,6 +54,8 @@ class AirPlayRoutePickerView extends StatefulWidget {
   /// The route picker view will finished presenting routes to the user.
   final VoidCallback? onClosePickerView;
 
+  final Function(bool isAirplay)? onAirplayStatusChanged;
+
   /// This function checks the presence of all the option attribute,
   /// and only packs the ones available. That helps the error handling
   /// in the native code.
@@ -63,7 +66,8 @@ class AirPlayRoutePickerView extends StatefulWidget {
       'prioritizesVideoDevices': prioritizesVideoDevices,
 
       // if tintColor is not provided, do not process this.
-      if (tintColor != null) 'tintColor': FlutterToAirplay.colorToParams(tintColor!),
+      if (tintColor != null)
+        'tintColor': FlutterToAirplay.colorToParams(tintColor!),
 
       // if activeTintColor is not provided, do not process this.
       if (activeTintColor != null)
@@ -88,7 +92,7 @@ class _AirPlayRoutePickerViewState extends State<AirPlayRoutePickerView> {
     super.dispose();
   }
 
-  void _onPlatformViewCreated(int id) {
+  void _onPlatformViewCreated(int id) async {
     final name = '${FlutterToAirplay.name}#$id';
 
     if (_methodChannel?.name != name) {
@@ -97,6 +101,10 @@ class _AirPlayRoutePickerViewState extends State<AirPlayRoutePickerView> {
 
     _methodChannel = MethodChannel(name);
     _methodChannel!.setMethodCallHandler(_onPatformCall);
+
+    final isAirplaying = await _methodChannel!.invokeMethod("isAirplaying");
+
+    widget.onAirplayStatusChanged?.call(isAirplaying);
   }
 
   Future<dynamic> _onPatformCall(MethodCall call) async {
@@ -106,6 +114,9 @@ class _AirPlayRoutePickerViewState extends State<AirPlayRoutePickerView> {
         break;
       case 'onClosePickerView':
         widget.onClosePickerView?.call();
+        break;
+      case 'onAirplayStatusChanged':
+        widget.onAirplayStatusChanged?.call(call.arguments);
         break;
     }
   }
