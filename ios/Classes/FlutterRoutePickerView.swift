@@ -13,12 +13,15 @@ import Flutter
 class FlutterRoutePickerView: NSObject, FlutterPlatformView {
     private var _flutterRoutePickerView : UIView;
     private var _delegate: AVRoutePickerViewDelegate?
+    let _methodChannel: FlutterMethodChannel
     
     init(
         messenger: FlutterBinaryMessenger,
         viewId: Int64,
         arguments: Dictionary<String, Any>
     ) {
+        _methodChannel = FlutterMethodChannel(name: "flutter_to_airplay#\(viewId)", binaryMessenger: messenger)
+
         if #available(iOS 11.0, *) {
             let tempView = AVRoutePickerView(frame: .init(x: 0.0, y: 0.0, width: 44.0, height: 44.0))
             if let tintColor = arguments["tintColor"] {
@@ -42,10 +45,25 @@ class FlutterRoutePickerView: NSObject, FlutterPlatformView {
             tempView.delegate = _delegate
             
             _flutterRoutePickerView = tempView
+            
+            super.init()
+
+            NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange), name: AVAudioSession.routeChangeNotification, object: nil)
+
+            _methodChannel.setMethodCallHandler { (call: FlutterMethodCall, result: FlutterResult) -> Void in
+                if call.method == "isAirplaying" {
+                    let isAirplaying = isAirplaying()
+                    result(isAirplaying)
+                } else {
+                    result(FlutterMethodNotImplemented)
+                }
+            }
         } else {
             let tempView = MPVolumeView(frame: .init(x: 0.0, y: 0.0, width: 44.0, height: 44.0))
             tempView.showsVolumeSlider = false
             _flutterRoutePickerView = tempView
+            
+            super.init()
         }
     }
     
@@ -58,6 +76,37 @@ class FlutterRoutePickerView: NSObject, FlutterPlatformView {
                              green: map["green"] as! CGFloat,
                              blue: map["blue"] as! CGFloat,
                              alpha: map["alpha"] as! CGFloat)
+    }
+    
+    @objc func handleRouteChange(notification: Notification) {
+        _methodChannel.invokeMethod("onAirplayStatusChanged", arguments: isAirplaying())
+
+        guard let userInfo = notification.userInfo else {
+            return
+        }
+            
+        if let reasonValue = userInfo[AVAudioSessionRouteChangeReasonKey] as? UInt, let reason = AVAudioSession.RouteChangeReason(rawValue: reasonValue) {
+            
+            
+            switch reason {
+            case .newDeviceAvailable:
+                print("newDeviceAvailable")
+                break
+            case .oldDeviceUnavailable:
+                print("oldDeviceUnavailable")
+                break
+            case .routeConfigurationChange:
+                print("routeConfigurationChange")
+                break
+            case .unknown:
+                if let previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey] as? AVAudioSessionRouteDescription {
+                    print("previous route outputs: \(previousRoute.outputs)")
+                }
+                break
+            default:
+                break
+            }
+        }
     }
 }
 
@@ -75,4 +124,16 @@ class FlutterRoutePickerDelegate : NSObject, AVRoutePickerViewDelegate {
     func routePickerViewDidEndPresentingRoutes(_ routePickerView: AVRoutePickerView) {
         _methodChannel.invokeMethod("onClosePickerView", arguments: nil)
     }
+}
+
+func isAirplaying() -> Bool {
+    let nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo
+    
+    let route = AVAudioSession.sharedInstance().currentRoute
+
+    for output in route.outputs where output.portType == AVAudioSession.Port.airPlay {
+        return true
+    }
+    
+    return false
 }
